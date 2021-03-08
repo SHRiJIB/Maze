@@ -4,10 +4,17 @@ const engine = Engine.create();
 engine.world.gravity.y = 0;
 const { world } = engine;
 
-const N = 10;
-const width = 600;
-const height = 600;
-const unitLength = width / N;
+const cellsHorizontal = 10;
+const cellsVertical = 8;
+const width =
+  cellsHorizontal * Math.floor(window.innerWidth / cellsHorizontal) -
+  Math.floor(window.innerWidth / cellsHorizontal) * 0.5;
+const height =
+  cellsVertical * Math.floor(window.innerHeight / cellsVertical) -
+  Math.floor(window.innerHeight / cellsVertical) * 0.2;
+const unitLengthX = width / cellsHorizontal;
+const unitLengthY = height / cellsVertical;
+
 const wallWidth = 5;
 const render = Render.create({
   element: document.body,
@@ -48,26 +55,23 @@ const shuffle = (arr) => {
   return arr;
 };
 
-//N x N
-const grid = Array(N)
+const grid = Array(cellsVertical)
   .fill(null)
-  .map(() => Array(N).fill(false));
+  .map(() => Array(cellsHorizontal).fill(false));
 
-//N x (N-1)
-const verticals = Array(N)
+const verticals = Array(cellsVertical)
   .fill(null)
-  .map(() => Array(N - 1).fill(false));
+  .map(() => Array(cellsHorizontal - 1).fill(false));
 
-//(N-1) x N
-const horizontals = Array(N - 1)
+const horizontals = Array(cellsVertical - 1)
   .fill(null)
-  .map(() => Array(N).fill(false));
+  .map(() => Array(cellsHorizontal).fill(false));
 
-const startRow = Math.floor(Math.random() * N);
-const startCol = Math.floor(Math.random() * N);
+const startRow = Math.floor(Math.random() * cellsVertical);
+const startCol = Math.floor(Math.random() * cellsHorizontal);
 
 const isValidCell = (row, col) => {
-  return row >= 0 && col >= 0 && row < N && col < N;
+  return row >= 0 && col >= 0 && row < cellsVertical && col < cellsHorizontal;
 };
 const stepThroughCells = (row, col) => {
   //if the cell at [row,col] is visited ,then return
@@ -112,11 +116,12 @@ horizontals.forEach((row, rowIndex) => {
     if (open) return;
 
     const wall = Bodies.rectangle(
-      colIndex * unitLength + unitLength / 2,
-      rowIndex * unitLength + unitLength,
-      unitLength,
+      colIndex * unitLengthX + unitLengthX / 2,
+      rowIndex * unitLengthY + unitLengthY,
+      unitLengthX,
       wallWidth,
       {
+        label: "wall",
         isStatic: true,
       }
     );
@@ -130,11 +135,12 @@ verticals.forEach((row, rowIndex) => {
     if (open) return;
 
     const wall = Bodies.rectangle(
-      colIndex * unitLength + unitLength,
-      rowIndex * unitLength + unitLength / 2,
+      colIndex * unitLengthX + unitLengthX,
+      rowIndex * unitLengthY + unitLengthY / 2,
       wallWidth,
-      unitLength,
+      unitLengthY,
       {
+        label: "wall",
         isStatic: true,
       }
     );
@@ -145,11 +151,12 @@ verticals.forEach((row, rowIndex) => {
 
 //Goal
 const goal = Bodies.rectangle(
-  width - unitLength / 2,
-  height - unitLength / 2,
-  unitLength * 0.7,
-  unitLength * 0.7,
+  width - unitLengthX / 2,
+  height - unitLengthY / 2,
+  unitLengthX * 0.7,
+  unitLengthY * 0.7,
   {
+    label: "goal",
     isStatic: true,
   }
 );
@@ -157,14 +164,17 @@ const goal = Bodies.rectangle(
 World.add(world, goal);
 
 //Ball
-const ball = Bodies.circle(unitLength / 2, unitLength / 2, unitLength / 4);
+const ballRadius = Math.min(unitLengthX, unitLengthY) / 4;
+const ball = Bodies.circle(unitLengthX / 2, unitLengthY / 2, ballRadius, {
+  label: "ball",
+});
 World.add(world, ball);
 
 //handling key presses
 
 document.addEventListener("keydown", (e) => {
   const { x, y } = ball.velocity;
-  console.log(x, y);
+
   if (e.keyCode === 87) {
     Body.setVelocity(ball, { x, y: y - 5 });
   }
@@ -180,4 +190,20 @@ document.addEventListener("keydown", (e) => {
   if (e.keyCode === 65) {
     Body.setVelocity(ball, { x: x - 5, y });
   }
+});
+
+//Win Condition
+
+Events.on(engine, "collisionStart", (e) => {
+  e.pairs.forEach((c) => {
+    const labels = ["ball", "goal"];
+    if (labels.includes(c.bodyA.label) && labels.includes(c.bodyB.label)) {
+      world.gravity.y = 1;
+      world.bodies.forEach((body) => {
+        if (body.label === "wall") {
+          Body.setStatic(body, false);
+        }
+      });
+    }
+  });
 });
